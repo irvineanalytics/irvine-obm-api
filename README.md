@@ -32,48 +32,28 @@ Base Node.js + Express RESTful API scaffold.
 - Swagger UI: `GET /api-docs`
 - OpenAPI JSON: `GET /api-docs.json`
 
-Use Swagger UI to test endpoints by filling query parameters directly (including `apiAccessToken` for protected routes).
+Use Swagger UI to test endpoints directly. The API manages upstream `apiAccessToken` automatically.
 
 ## Base Endpoints
 
 - `GET /` - API status
-- `GET /api/v1/readings/request-token?username=...&password=...` - Request token
-- `GET /api/v1/readings/list?apiAccessToken=...` - List modem and meter info
-- `GET /api/v1/readings/get-all-accounts-by-group?apiAccessToken=...` - List all accounts by group
-- `GET /api/v1/readings/get-accounts-by-sub-group?apiAccessToken=...&subgroup=...` - List accounts by subgroup
-- `GET /api/v1/readings/get-site-readings?apiAccessToken=...&site=...&date=YYYY-MM-DD` - Get site readings by date
-- `GET /api/v1/readings/get-site-daily?apiAccessToken=...&site=...&date=YYYY-MM-DD` - Get site daily readings by date
-- `GET /api/v1/health?apiAccessToken=...` - Health check (token required)
+- `GET /api/v1/readings/request-token` - Force refresh upstream token
+- `GET /api/v1/readings/list` - List modem and meter info
+- `GET /api/v1/readings/get-all-accounts-by-group` - List all accounts by group
+- `GET /api/v1/readings/get-accounts-by-sub-group?subgroup=...` - List accounts by subgroup
+- `GET /api/v1/readings/get-site-readings?site=...&date=YYYY-MM-DD` - Get site readings by date
+- `GET /api/v1/readings/get-site-daily?site=...&date=YYYY-MM-DD` - Get site daily readings by date
+- `GET /api/v1/health` - Health check
 
-## Authentication
+## Authentication Behavior
 
-All API endpoints require an `apiAccessToken`, except:
-
-- `GET /api/v1/readings/request-token`
-
-### Request Token
-
-Example:
-
-```bash
-curl "http://localhost:3000/api/v1/readings/request-token?username=APIdemo1!&password=OBapi1!"
-```
-
-Response:
-
-```json
-{
-   "access-token": "<generated-token>"
-}
-```
-
-Tokens are valid for 24 hours by default (`TOKEN_TTL_HOURS`).
+- On API startup, the server requests an upstream token from `https://meterportal.obmeters.com/readings/request-token`.
+- The token is stored in memory and reused for all upstream requests.
+- The token is automatically refreshed every `TOKEN_REFRESH_HOURS` (default `12`).
+- You can manually trigger refresh with `GET /api/v1/readings/request-token`.
 
 ## Common Parameters
 
-- `apiAccessToken`
-   - Required for all API requests except obtaining a token
-   - Must be included as a query parameter in the URL
 - Date format
    - Use `YYYY-MM-DD`
 - URL encoding
@@ -92,40 +72,40 @@ API responses include standard HTTP status codes:
 
 ### Use Token
 
-Query parameter style:
+Local API usage:
 
 ```bash
-curl "http://localhost:3000/api/v1/health?apiAccessToken=<generated-token>"
+curl "http://localhost:3000/api/v1/health"
 ```
 
 Meter operations:
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/list?apiAccessToken=<generated-token>"
+curl "http://localhost:3000/api/v1/readings/list"
 ```
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-site-readings?apiAccessToken=<generated-token>&site=Heywood"
+curl "http://localhost:3000/api/v1/readings/get-site-readings?site=Heywood"
 ```
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-site-readings?apiAccessToken=<generated-token>&site=Heywood&date=2026-08-18"
+curl "http://localhost:3000/api/v1/readings/get-site-readings?site=Heywood&date=2026-08-18"
 ```
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-site-daily?apiAccessToken=<generated-token>&site=Heywood"
+curl "http://localhost:3000/api/v1/readings/get-site-daily?site=Heywood"
 ```
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-site-daily?apiAccessToken=<generated-token>&site=Heywood&date=2026-08-18"
+curl "http://localhost:3000/api/v1/readings/get-site-daily?site=Heywood&date=2026-08-18"
 ```
 
 Account operations:
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-all-accounts-by-group?apiAccessToken=<generated-token>"
+curl "http://localhost:3000/api/v1/readings/get-all-accounts-by-group"
 ```
 
 ```bash
-curl "http://localhost:3000/api/v1/readings/get-accounts-by-sub-group?apiAccessToken=<generated-token>&subgroup=Subgroup%201"
+curl "http://localhost:3000/api/v1/readings/get-accounts-by-sub-group?subgroup=Subgroup%201"
 ```

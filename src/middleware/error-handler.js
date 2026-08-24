@@ -21,6 +21,9 @@ function errorHandler(err, req, res, next) {
 
   if (process.env.NODE_ENV !== 'production') {
     // Keep stack traces available in non-production for faster debugging.
+    console.error(
+      `[error:${req.requestId || '-'}] ${req.method} ${req.originalUrl} status=${statusCode} message=${message}`
+    );
     console.error(err);
   }
 

@@ -1,8 +1,8 @@
 const express = require('express');
 
 const env = require('../config/env');
-const { issueToken } = require('../services/token-store');
-const { requireApiToken } = require('../middleware/require-api-token');
+const upstreamClient = require('../services/upstream-client');
+const { requestUpstreamToken, getTokenLoadedAt } = require('../services/upstream-token-manager');
 
 const router = express.Router();
 
@@ -21,8 +21,9 @@ function isValidDateInput(dateString) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === dateString;
 }
 
-router.get('/request-token', (req, res) => {
-  const { username, password } = req.query;
+router.get('/request-token', async (req, res, next) => {
+  // const { username, password } = req.query;
+  const { username, password } = {username: env.apiUsername, password: env.apiPassword};
 
   if (!username || !password) {
     return res.status(400).json({
@@ -30,41 +31,38 @@ router.get('/request-token', (req, res) => {
     });
   }
 
-  if (username !== env.apiUsername || password !== env.apiPassword) {
-    return res.status(401).json({
-      message: 'Invalid username or password'
+  try {
+    const refreshedToken = await requestUpstreamToken();
+
+    return res.status(200).json({
+      message: 'Upstream token refreshed',
+      'access-token': refreshedToken,
+      loadedAt: getTokenLoadedAt()
     });
+  } catch (error) {
+    return next(error);
   }
-
-  const accessToken = issueToken({
-    username,
-    ttlHours: env.tokenTtlHours
-  });
-
-  return res.status(200).json({
-    'access-token': accessToken
-  });
 });
 
-router.use(requireApiToken);
-
-router.get('/list', (req, res) => {
-  return res.status(200).json({
-    success: true,
-    meters: [],
-    total: 0
-  });
+router.get('/list', async (req, res, next) => {
+  try {
+    const data = await upstreamClient.get('/readings/list');
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
 });
 
-router.get('/get-all-accounts-by-group', (req, res) => {
-  return res.status(200).json({
-    success: true,
-    accounts: [],
-    total: 0
-  });
+router.get('/get-all-accounts-by-group', async (req, res, next) => {
+  try {
+    const data = await upstreamClient.get('/readings/get-all-accounts-by-group');
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
 });
 
-router.get('/get-accounts-by-sub-group', (req, res) => {
+router.get('/get-accounts-by-sub-group', async (req, res, next) => {
   const { subgroup } = req.query;
 
   if (!subgroup) {
@@ -73,15 +71,18 @@ router.get('/get-accounts-by-sub-group', (req, res) => {
     });
   }
 
-  return res.status(200).json({
-    success: true,
-    subgroup,
-    accounts: [],
-    total: 0
-  });
+  try {
+    const data = await upstreamClient.get('/readings/get-accounts-by-sub-group', {
+      subgroup
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
 });
 
-router.get('/get-site-readings', (req, res) => {
+router.get('/get-site-readings', async (req, res, next) => {
   const { site, date } = req.query;
 
   if (!site) {
@@ -98,16 +99,19 @@ router.get('/get-site-readings', (req, res) => {
     });
   }
 
-  return res.status(200).json({
-    success: true,
-    site,
-    date: readingDate,
-    readings: [],
-    total: 0
-  });
+  try {
+    const data = await upstreamClient.get('/readings/get-site-readings', {
+      site,
+      date: readingDate
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
 });
 
-router.get('/get-site-daily', (req, res) => {
+router.get('/get-site-daily', async (req, res, next) => {
   const { site, date } = req.query;
 
   if (!site) {
@@ -124,13 +128,16 @@ router.get('/get-site-daily', (req, res) => {
     });
   }
 
-  return res.status(200).json({
-    success: true,
-    site,
-    date: readingDate,
-    dailyReadings: [],
-    total: 0
-  });
+  try {
+    const data = await upstreamClient.get('/readings/get-site-daily', {
+      site,
+      date: readingDate
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    return next(error);
+  }
 });
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { randomUUID } = require('crypto');
 const swaggerUi = require('swagger-ui-express');
 
 const env = require('./config/env');
@@ -11,9 +12,29 @@ const { notFoundHandler, errorHandler } = require('./middleware/error-handler');
 
 const app = express();
 
+morgan.token('req-id', (req) => req.requestId || '-');
+morgan.token('query', (req) => JSON.stringify(req.query || {}));
+
 app.use(helmet());
 app.use(cors());
-app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader('x-request-id', req.requestId);
+  next();
+});
+
+const logFormat = env.nodeEnv === 'production'
+  ? '[:date[iso]] :req-id :remote-addr :method :url :status :res[content-length] - :response-time ms'
+  : '[:date[iso]] :req-id :remote-addr :method :url :status :res[content-length] - :response-time ms query=:query ua=":user-agent"';
+
+app.use(morgan(logFormat));
+
+if (env.verboseRequestLogging) {
+  app.use((req, res, next) => {
+    console.debug(`[request:${req.requestId}] params=${JSON.stringify(req.params)} body=${JSON.stringify(req.body)}`);
+    next();
+  });
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

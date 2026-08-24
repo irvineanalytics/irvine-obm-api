@@ -15,14 +15,6 @@ const options = {
       }
     ],
     components: {
-      securitySchemes: {
-        ApiAccessTokenQuery: {
-          type: 'apiKey',
-          in: 'query',
-          name: 'apiAccessToken',
-          description: 'Required for all requests except requesting a token.'
-        }
-      },
       schemas: {
         ErrorResponse: {
           type: 'object',
@@ -49,49 +41,29 @@ const options = {
       },
       '/api/v1/readings/request-token': {
         get: {
-          summary: 'Request access token',
+          summary: 'Force refresh upstream access token',
           tags: ['Authentication'],
-          parameters: [
-            {
-              name: 'username',
-              in: 'query',
-              required: true,
-              schema: { type: 'string' }
-            },
-            {
-              name: 'password',
-              in: 'query',
-              required: true,
-              schema: { type: 'string' }
-            }
-          ],
           responses: {
             200: {
-              description: 'Token issued',
+              description: 'Token refreshed',
               content: {
                 'application/json': {
                   schema: {
                     type: 'object',
                     properties: {
+                      message: { type: 'string', example: 'Upstream token refreshed' },
                       'access-token': {
                         type: 'string',
                         example: 'S6uaZwdqkuOMUdmnFgmsM6YhIXOAOD-T_1732707189'
-                      }
+                      },
+                      loadedAt: { type: 'string', format: 'date-time' }
                     }
                   }
                 }
               }
             },
-            400: {
-              description: 'Missing username or password',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/ErrorResponse' }
-                }
-              }
-            },
-            401: {
-              description: 'Invalid username or password',
+            502: {
+              description: 'Failed to refresh token from upstream',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -105,11 +77,10 @@ const options = {
         get: {
           summary: 'List modem and meter info',
           tags: ['Meter Operations'],
-          security: [{ ApiAccessTokenQuery: [] }],
           responses: {
             200: { description: 'Meter list returned' },
-            401: {
-              description: 'Missing or invalid token',
+            502: {
+              description: 'Upstream error',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -123,11 +94,10 @@ const options = {
         get: {
           summary: 'List all accounts by group',
           tags: ['Account Operations'],
-          security: [{ ApiAccessTokenQuery: [] }],
           responses: {
             200: { description: 'Accounts returned' },
-            401: {
-              description: 'Missing or invalid token',
+            502: {
+              description: 'Upstream error',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -141,7 +111,6 @@ const options = {
         get: {
           summary: 'List accounts by subgroup',
           tags: ['Account Operations'],
-          security: [{ ApiAccessTokenQuery: [] }],
           parameters: [
             {
               name: 'subgroup',
@@ -161,8 +130,8 @@ const options = {
                 }
               }
             },
-            401: {
-              description: 'Missing or invalid token',
+            502: {
+              description: 'Upstream error',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -176,7 +145,6 @@ const options = {
         get: {
           summary: 'Get half hourly meter readings by site',
           tags: ['Reading Operations'],
-          security: [{ ApiAccessTokenQuery: [] }],
           parameters: [
             {
               name: 'site',
@@ -203,8 +171,8 @@ const options = {
                 }
               }
             },
-            401: {
-              description: 'Missing or invalid token',
+            502: {
+              description: 'Upstream error',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -218,7 +186,6 @@ const options = {
         get: {
           summary: 'Get daily meter readings by site',
           tags: ['Reading Operations'],
-          security: [{ ApiAccessTokenQuery: [] }],
           parameters: [
             {
               name: 'site',
@@ -245,8 +212,8 @@ const options = {
                 }
               }
             },
-            401: {
-              description: 'Missing or invalid token',
+            502: {
+              description: 'Upstream error',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -260,17 +227,8 @@ const options = {
         get: {
           summary: 'Health check',
           tags: ['System'],
-          security: [{ ApiAccessTokenQuery: [] }],
           responses: {
-            200: { description: 'Healthy status returned' },
-            401: {
-              description: 'Missing or invalid token',
-              content: {
-                'application/json': {
-                  schema: { $ref: '#/components/schemas/ErrorResponse' }
-                }
-              }
-            }
+            200: { description: 'Healthy status returned' }
           }
         }
       }
