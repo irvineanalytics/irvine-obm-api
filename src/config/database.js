@@ -51,36 +51,6 @@ async function initializeDatabase() {
   const client = await pool.connect();
 
   try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS obm_sites (
-        id BIGSERIAL PRIMARY KEY,
-        site_name TEXT NOT NULL UNIQUE,
-        modem_dtu INTEGER,
-        meter_id INTEGER,
-        raw_data JSONB NOT NULL,
-        is_active BOOLEAN NOT NULL DEFAULT TRUE,
-        synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS obm_readings (
-        id BIGSERIAL PRIMARY KEY,
-        site_name TEXT NOT NULL,
-        reading_date DATE NOT NULL,
-        meter_serial TEXT NOT NULL,
-        sub_group TEXT,
-        meter_group TEXT,
-        reading_time TIME NOT NULL,
-        import_kwh NUMERIC,
-        export_kwh NUMERIC,
-        total_kwh NUMERIC,
-        raw_data JSONB NOT NULL,
-        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE (site_name, reading_date, meter_serial, reading_time)
-      )
-    `);
-
     const result = await client.query('SELECT NOW() AS now');
     console.log(`[db] PostgreSQL connected. server_time=${result.rows[0].now.toISOString()}`);
   } finally {
