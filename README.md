@@ -24,8 +24,19 @@ Base Node.js + Express RESTful API scaffold.
 
 ## Scripts
 
-- `npm run dev` - Start server with nodemon
-- `npm start` - Start server
+- npm run dev - Start server with nodemon
+- npm start - Start server
+- npm test - Run unit tests
+
+## Unit Testing
+
+This project uses `jest` and `supertest` for route-level unit testing.
+
+Run tests:
+
+```bash
+npm test
+```
 
 ## Swagger Testing
 
@@ -51,6 +62,19 @@ Use Swagger UI to test endpoints directly. The API manages upstream `apiAccessTo
 - The token is stored in memory and reused for all upstream requests.
 - The token is automatically refreshed every `TOKEN_REFRESH_HOURS` (default `12`).
 - You can manually trigger refresh with `GET /api/v1/readings/request-token`.
+
+## Automatic Reading Ingestion
+
+The API synchronizes sites from `/readings/list` immediately and every 6 hours by default.
+`SerialNumber` from that response is treated as the site name. The interval can be changed
+with `SITE_SYNC_INTERVAL_MS`.
+
+After startup, the API fetches today's readings for each active stored site immediately and every
+30 minutes by default. The interval can be changed with `READING_INGESTION_INTERVAL_MS`.
+
+Sites are stored in `obm_sites`. Individual half-hour readings are normalized into
+`obm_readings`, keyed by site, date, meter serial, and reading time. Repeated fetches update
+existing rows rather than creating duplicates.
 
 ## Common Parameters
 
