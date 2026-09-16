@@ -21,14 +21,14 @@ async function syncSites() {
 
     await pool.query(
       `
-        INSERT INTO obm_sites (site_name, modem_dtu, meter_id, raw_data, synced_at)
-        VALUES ($1, $2, $3, $4::jsonb, NOW())
-        ON CONFLICT (site_name)
-        DO UPDATE SET modem_dtu = EXCLUDED.modem_dtu,
-          meter_id = EXCLUDED.meter_id, raw_data = EXCLUDED.raw_data,
-          is_active = TRUE, synced_at = EXCLUDED.synced_at
+        INSERT INTO energy_location (id, code, name, is_active, created_at, updated_at)
+        VALUES (uuid_generate_v4(), $1, $2, TRUE, NOW(), NOW())
+        ON CONFLICT (code)
+        DO UPDATE SET name = EXCLUDED.name,
+          is_active = TRUE,
+          updated_at = NOW()
       `,
-      [site.SerialNumber, site.ModemDTU || null, site.MeterID || null, JSON.stringify(site)]
+      [site.SerialNumber || site.code || site.name || 'unknown-site', site.Name || site.name || site.SerialNumber || 'Unknown Site']
     );
   }
 
@@ -38,7 +38,7 @@ async function syncSites() {
 
 async function getActiveSites() {
   const result = await pool.query(
-    'SELECT site_name FROM obm_sites WHERE is_active = TRUE ORDER BY site_name'
+    'SELECT code AS site_name FROM energy_location WHERE is_active = TRUE ORDER BY code'
   );
   return result.rows.map((row) => row.site_name);
 }
@@ -58,20 +58,30 @@ async function saveSiteReadings(siteName, readingDate, payload) {
       for (const reading of meter.readings) {
         await client.query(
           `
-            INSERT INTO obm_readings (
-              site_name, reading_date, meter_serial, sub_group, meter_group,
-              reading_time, import_kwh, export_kwh, total_kwh, raw_data, fetched_at
+            INSERT INTO rawdata_energy (
+              id,
+              meter_ref_id,
+              device_type,
+              plc_id,
+              string_id,
+              comm_status,
+              readings,
+              created_date,
+              created_time,
+              created_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6::time, $7, $8, $9, $10::jsonb, NOW())
-            ON CONFLICT (site_name, reading_date, meter_serial, reading_time)
-            DO UPDATE SET sub_group = EXCLUDED.sub_group, meter_group = EXCLUDED.meter_group,
-              import_kwh = EXCLUDED.import_kwh, export_kwh = EXCLUDED.export_kwh,
-              total_kwh = EXCLUDED.total_kwh, raw_data = EXCLUDED.raw_data,
-              fetched_at = EXCLUDED.fetched_at
+            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6::jsonb, $7, $8::time, NOW())
           `,
-          [siteName, readingDate, meter.serial, meter.subGroup || null, meter.meterGroup || null,
-            reading.time, reading.import_kwh ?? null, reading.export_kwh ?? null,
-            reading.total_kwh ?? null, JSON.stringify(reading)]
+          [
+            meter.serial || siteName,
+            meter.deviceType || 'meter',
+            meter.plcId || 'unknown',
+            siteName,
+            meter.commStatus || 'ok',
+            JSON.stringify(reading),
+            readingDate,
+            reading.time || '00:00:00'
+          ]
         );
       }
     }

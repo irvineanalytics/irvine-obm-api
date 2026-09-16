@@ -49,12 +49,7 @@ app.get('/api-docs.json', (req, res) => {
   res.status(200).json(swaggerSpec);
 });
 
-app.get('/api-docs', (req, res) => {
-  res.type('html');
-  res.send(swaggerUi.generateHTML(swaggerSpec));
-});
-
-app.use('/api-docs', swaggerUi.serveFiles(swaggerSpec), swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(env.apiPrefix, apiRoutes);
 
