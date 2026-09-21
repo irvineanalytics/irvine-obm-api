@@ -231,6 +231,23 @@ const options = {
             200: { description: 'Healthy status returned' }
           }
         }
+      },
+      '/energy': {
+        post: {
+          summary: 'Send a mock energy payload to the processor service',
+          tags: ['System'],
+          responses: {
+            200: {
+              description: 'Mock payload accepted by processor'
+            },
+            400: {
+              description: 'Invalid payload'
+            },
+            500: {
+              description: 'Processor insert failed'
+            }
+          }
+        }
       }
     }
   },

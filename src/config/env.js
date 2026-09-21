@@ -17,11 +17,18 @@ const env = {
   dbIdleTimeoutMs: Number(process.env.DB_IDLE_TIMEOUT_MS) || 30000,
   dbConnectTimeoutMs: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 10000,
   upstreamBaseUrl: process.env.UPSTREAM_BASE_URL || 'https://meterportal.obmeters.com',
+  processorBaseUrl: process.env.PROCESSOR_BASE_URL || 'http://irvine_processor:7000',
   apiUsername: process.env.API_USERNAME || 'APIdemo1!',
   apiPassword: process.env.API_PASSWORD || 'OBapi1!',
+  skipTokenOnLoad: process.env.SKIP_TOKEN_ON_LOAD === 'true',
   tokenRefreshHours: Number(process.env.TOKEN_REFRESH_HOURS) || 12,
   readingIngestionIntervalMs: Number(process.env.READING_INGESTION_INTERVAL_MS) || 30 * 60 * 1000,
   siteSyncIntervalMs: Number(process.env.SITE_SYNC_INTERVAL_MS) || 6 * 60 * 60 * 1000,
+  mockEnergySite: process.env.MOCK_ENERGY_SITE || 'heywood',
+  mockEnergyMeterSerial: process.env.MOCK_ENERGY_METER_SERIAL || 'MOCK-ENERGY-001',
+  mockEnergySubGroup: process.env.MOCK_ENERGY_SUB_GROUP || 'Main Transport Yard',
+  mockEnergyMeterGroup: process.env.MOCK_ENERGY_METER_GROUP || '',
+  mockEnergyTopic: process.env.MOCK_ENERGY_TOPIC || 'mock-energy-topic',
   verboseRequestLogging: process.env.VERBOSE_REQUEST_LOGGING === 'true' || process.env.NODE_ENV !== 'production'
 };
 

@@ -62,6 +62,7 @@ Use Swagger UI to test endpoints directly. The API manages upstream `apiAccessTo
 - The token is stored in memory and reused for all upstream requests.
 - The token is automatically refreshed every `TOKEN_REFRESH_HOURS` (default `12`).
 - You can manually trigger refresh with `GET /api/v1/readings/request-token`.
+- Set `SKIP_TOKEN_ON_LOAD=true` to skip the startup token fetch when you only want to run the mock energy sender locally.
 
 ## Automatic Reading Ingestion
 
@@ -75,6 +76,22 @@ After startup, the API fetches today's readings for each active stored site imme
 Sites are stored in `obm_sites`. Individual half-hour readings are normalized into
 `obm_readings`, keyed by site, date, meter serial, and reading time. Repeated fetches update
 existing rows rather than creating duplicates.
+
+## Mock Energy Mode
+
+If the Owen Brothers upstream endpoint is not available, the API also sends a synthetic energy
+payload every 30 minutes by default. The payload is posted to the processor service at
+`PROCESSOR_BASE_URL` and is intended for local end-to-end testing.
+
+Configuration:
+
+- `PROCESSOR_BASE_URL` - Processor base URL, default `http://irvine_processor:7000`
+- `MOCK_ENERGY_INTERVAL_MS` - Send interval in milliseconds, default `1800000`
+- `MOCK_ENERGY_METER_SERIAL` - Meter serial included in the mock payload
+- `MOCK_ENERGY_TOPIC` - Topic value included in the mock payload
+
+The processor receives the mock payload at `POST /energy/` and stores each reading row in
+`rawdata_energy`.
 
 ## Common Parameters
 

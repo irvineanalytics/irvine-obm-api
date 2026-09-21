@@ -3,23 +3,30 @@ const env = require('./config/env');
 const { initializeTokenManager, requestUpstreamToken } = require('./services/upstream-token-manager');
 const { initializeDatabase } = require('./config/database');
 const { startScheduledJobs } = require('./services/readings-ingestion');
+const { startMockEnergyIngestion } = require('./services/mock-energy-ingestion');
 
 async function startServer() {
   await initializeDatabase();
 
-  await initializeTokenManager();
+  if (!env.skipTokenOnLoad) {
+    await initializeTokenManager();
 
-  const refreshMs = env.tokenRefreshHours * 60 * 60 * 1000;
-  const refreshTimer = setInterval(async () => {
-    try {
-      await requestUpstreamToken();
-    } catch (error) {
-      console.error(`[token] Scheduled refresh failed: ${error.message}`);
-    }
-  }, refreshMs);
+    const refreshMs = env.tokenRefreshHours * 60 * 60 * 1000;
+    const refreshTimer = setInterval(async () => {
+      try {
+        await requestUpstreamToken();
+      } catch (error) {
+        console.error(`[token] Scheduled refresh failed: ${error.message}`);
+      }
+    }, refreshMs);
 
-  refreshTimer.unref();
+    refreshTimer.unref();
+  } else {
+    console.log('[token] Skipping upstream token fetch on load');
+  }
+
   startScheduledJobs();
+  await startMockEnergyIngestion();
 
   app.listen(env.port, () => {
     console.log(`Server running on port ${env.port}`);
