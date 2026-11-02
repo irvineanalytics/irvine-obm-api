@@ -1,0 +1,9 @@
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY package*.json ./
+COPY vendor ./vendor
+RUN npm ci --omit=dev
+COPY . .
+USER node
+EXPOSE 3000
+CMD ["node", "src/server.js"]

@@ -1,82 +1,38 @@
-const env = require('../config/env');
-
-let currentToken = null;
-let tokenLoadedAtMs = 0;
-
-function sanitizeSnippet(text) {
-    return String(text || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 180);
+const runtime = require('./tenant-runtime');
+const { currentCompany } = require('@irvine/tenant-runtime');
+class TokenManager {
+  constructor(loader, fetchImpl = fetch, now = Date.now) { Object.assign(this, { loader, fetch: fetchImpl, now }); this.tokens = new Map(); this.pending = new Map(); }
+  async get(company, signal, force = false) {
+    const integration = await this.loader.get(company, 'obm');
+    const cached = this.tokens.get(company);
+    if (!force && cached?.revision === integration.revision && cached.expires > this.now()) return cached;
+    const key = `${company}:${integration.revision}`;
+    if (this.pending.has(key)) return this.pending.get(key);
+    const work = this.load(integration, signal);
+    this.pending.set(key, work);
+    try { return await work; } finally { this.pending.delete(key); }
+  }
+  async load(integration, signal) {
+    const url = new URL('/readings/request-token', integration.config.base_url);
+    url.searchParams.set('username', integration.config.username);
+    url.searchParams.set('password', integration.secret.password);
+    try {
+      const response = await this.fetch(url, { redirect: 'error', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000) });
+      if (!response.ok) throw new Error();
+      const payload = await response.json();
+      if (typeof payload['access-token'] !== 'string' || !payload['access-token']) throw new Error();
+      const loaded = this.now();
+      const ttl = Math.min(integration.config.token_refresh_hours * 3600000, Number(payload.expires_in || 43200) * 1000);
+      if (!Number.isFinite(ttl) || ttl <= 0) throw new Error();
+      const value = { baseUrl: integration.config.base_url, token: payload['access-token'], loadedAt: new Date(loaded).toISOString(), expires: loaded + ttl, revision: integration.revision };
+      this.tokens.set(integration.company_id, value);
+      return value;
+    } catch { this.tokens.delete(integration.company_id); throw new Error('Tenant OBM authentication unavailable'); }
+  }
 }
-
-async function requestUpstreamToken() {
-    const requestTokenUrl = new URL('/readings/request-token', env.upstreamBaseUrl);
-
-    requestTokenUrl.searchParams.set('username', env.apiUsername);
-    requestTokenUrl.searchParams.set('password', env.apiPassword);
-    console.log(requestTokenUrl.toString());
-    const response = await fetch(requestTokenUrl, {
-        method: 'GET',
-        headers: {
-            Accept: 'application/json, text/plain, */*',
-            'User-Agent': 'irvine-obm-api/1.0 (+startup-token-fetch)'
-        }
-    });
-
-    if (!response.ok) {
-        const bodyText = await response.text();
-        const snippet = sanitizeSnippet(bodyText);
-        const error = new Error(
-            `Failed to request upstream token (${response.status}). Response snippet: ${snippet}. ` +
-            'Likely causes: API credentials invalid for this endpoint, source IP not allowed/whitelisted, or upstream WAF restriction.'
-        );
-        error.statusCode = 502;
-        throw error;
-    }
-
-    const payload = await response.json();
-    const token = payload['access-token'];
-
-    if (!token) {
-        const error = new Error('Upstream token response did not include access-token');
-        error.statusCode = 502;
-        throw error;
-    }
-
-    currentToken = token;
-    tokenLoadedAtMs = Date.now();
-
-    console.log('[token] Upstream token refreshed successfully');
-    return currentToken;
-}
-
-async function initializeTokenManager() {
-    console.log('[token] Requesting upstream token during startup');
-    await requestUpstreamToken();
-}
-
-function getCurrentToken() {
-    if (!currentToken) {
-        const error = new Error('Upstream token is not available yet');
-        error.statusCode = 503;
-        throw error;
-    }
-
-    return currentToken;
-}
-
-function getTokenLoadedAt() {
-    if (!tokenLoadedAtMs) {
-        return null;
-    }
-
-    return new Date(tokenLoadedAtMs).toISOString();
-}
-
-module.exports = {
-    initializeTokenManager,
-    requestUpstreamToken,
-    getCurrentToken,
-    getTokenLoadedAt
+let instance;
+const manager = () => instance ||= new TokenManager(runtime().loader);
+module.exports = { TokenManager,
+  getToken: (company = currentCompany(), signal) => manager().get(company, signal),
+  requestUpstreamToken: (company = currentCompany(), signal) => manager().get(company, signal, true),
 };
