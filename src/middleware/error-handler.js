@@ -1,42 +1,7 @@
-const STATUS_LABELS = {
-  400: 'Bad Request',
-  401: 'Unauthorized',
-  403: 'Forbidden',
-  404: 'Not Found',
-  500: 'Internal Server Error'
-};
-
-function notFoundHandler(req, res, next) {
-  res.status(404).json({
-    success: false,
-    statusCode: 404,
-    error: STATUS_LABELS[404],
-    message: `Route not found: ${req.originalUrl}`
-  });
+function notFoundHandler(_req, res) { res.status(404).json({ message: 'Not found' }); }
+function errorHandler(error, req, res, _next) {
+  const status = [400, 401, 403, 404].includes(error.statusCode) ? error.statusCode : 503;
+  console.error(JSON.stringify({ event: 'obm-request-failed', company_id: req.tenant?.company_id, status }));
+  res.status(status).json({ message: status === 404 ? 'Site unavailable' : 'Tenant service unavailable' });
 }
-
-function errorHandler(err, req, res, next) {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-
-  if (process.env.NODE_ENV !== 'production') {
-    // Keep stack traces available in non-production for faster debugging.
-    console.error(
-      `[error:${req.requestId || '-'}] ${req.method} ${req.originalUrl} status=${statusCode} message=${message}`
-    );
-    console.error(err);
-  }
-
-  res.status(statusCode).json({
-    success: false,
-    statusCode,
-    error: STATUS_LABELS[statusCode] || 'Error',
-    message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-  });
-}
-
-module.exports = {
-  notFoundHandler,
-  errorHandler
-};
+module.exports = { notFoundHandler, errorHandler };

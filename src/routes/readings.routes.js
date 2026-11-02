@@ -2,9 +2,11 @@ const express = require('express');
 
 const env = require('../config/env');
 const upstreamClient = require('../services/upstream-client');
-const { requestUpstreamToken, getTokenLoadedAt } = require('../services/upstream-token-manager');
+const { requestUpstreamToken } = require('../services/upstream-token-manager');
 
 const router = express.Router();
+router.use(require('../middleware/tenant'));
+const { requireSite } = require('../services/readings-ingestion');
 
 function getYesterdayDateString() {
   const yesterday = new Date();
@@ -22,22 +24,12 @@ function isValidDateInput(dateString) {
 }
 
 router.get('/request-token', async (req, res, next) => {
-  // const { username, password } = req.query;
-  const { username, password } = {username: env.apiUsername, password: env.apiPassword};
-
-  if (!username || !password) {
-    return res.status(400).json({
-      message: 'username and password are required'
-    });
-  }
-
   try {
     const refreshedToken = await requestUpstreamToken();
 
     return res.status(200).json({
       message: 'Upstream token refreshed',
-      'access-token': refreshedToken,
-      loadedAt: getTokenLoadedAt()
+      loadedAt: refreshedToken.loadedAt
     });
   } catch (error) {
     return next(error);
@@ -100,6 +92,7 @@ router.get('/get-site-readings', async (req, res, next) => {
   }
 
   try {
+    await requireSite(site);
     const data = await upstreamClient.get('/readings/get-site-readings', {
       site,
       date: readingDate
@@ -129,6 +122,7 @@ router.get('/get-site-daily', async (req, res, next) => {
   }
 
   try {
+    await requireSite(site);
     const data = await upstreamClient.get('/readings/get-site-daily', {
       site,
       date: readingDate
