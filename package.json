@@ -36,12 +36,6 @@
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"
   },
-  "jest": {
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/tests/postgres/"
-    ]
-  },
   "engines": {
     "node": ">=22"
   }
