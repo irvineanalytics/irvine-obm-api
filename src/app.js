@@ -23,18 +23,9 @@ app.use((req, res, next) => {
   next();
 });
 
-const logFormat = env.nodeEnv === 'production'
-  ? '[:date[iso]] :req-id :remote-addr :method :url :status :res[content-length] - :response-time ms'
-  : '[:date[iso]] :req-id :remote-addr :method :url :status :res[content-length] - :response-time ms query=:query ua=":user-agent"';
+morgan.token('safe-path', req => req.path);
+app.use(morgan(':method :safe-path :status :response-time ms'));
 
-app.use(morgan(logFormat));
-
-if (env.verboseRequestLogging) {
-  app.use((req, res, next) => {
-    console.debug(`[request:${req.requestId}] params=${JSON.stringify(req.params)} body=${JSON.stringify(req.body)}`);
-    next();
-  });
-}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

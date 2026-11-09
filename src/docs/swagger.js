@@ -15,6 +15,10 @@ const options = {
       }
     ],
     components: {
+      securitySchemes: {
+        InternalServiceKey: { type: 'apiKey', in: 'header', name: 'X-Service-Key' },
+        CompanyId: { type: 'apiKey', in: 'header', name: 'X-Company-Id', description: 'Company selected by a trusted server caller.' },
+      },
       schemas: {
         ErrorResponse: {
           type: 'object',
@@ -52,17 +56,13 @@ const options = {
                     type: 'object',
                     properties: {
                       message: { type: 'string', example: 'Upstream token refreshed' },
-                      'access-token': {
-                        type: 'string',
-                        example: 'S6uaZwdqkuOMUdmnFgmsM6YhIXOAOD-T_1732707189'
-                      },
                       loadedAt: { type: 'string', format: 'date-time' }
                     }
                   }
                 }
               }
             },
-            502: {
+            503: {
               description: 'Failed to refresh token from upstream',
               content: {
                 'application/json': {
@@ -79,7 +79,7 @@ const options = {
           tags: ['Meter Operations'],
           responses: {
             200: { description: 'Meter list returned' },
-            502: {
+            503: {
               description: 'Upstream error',
               content: {
                 'application/json': {
@@ -96,7 +96,7 @@ const options = {
           tags: ['Account Operations'],
           responses: {
             200: { description: 'Accounts returned' },
-            502: {
+            503: {
               description: 'Upstream error',
               content: {
                 'application/json': {
@@ -130,7 +130,7 @@ const options = {
                 }
               }
             },
-            502: {
+            503: {
               description: 'Upstream error',
               content: {
                 'application/json': {
@@ -171,7 +171,7 @@ const options = {
                 }
               }
             },
-            502: {
+            503: {
               description: 'Upstream error',
               content: {
                 'application/json': {
@@ -212,7 +212,7 @@ const options = {
                 }
               }
             },
-            502: {
+            503: {
               description: 'Upstream error',
               content: {
                 'application/json': {
@@ -254,6 +254,9 @@ const options = {
   apis: []
 };
 
+for (const [path, methods] of Object.entries(options.definition.paths)) {
+  if (path.includes('/readings/')) methods.get.security = [{ InternalServiceKey: [], CompanyId: [] }];
+}
 const swaggerSpec = swaggerJsdoc(options);
 
 module.exports = swaggerSpec;

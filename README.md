@@ -1,152 +1,36 @@
 # Irvine OBM API
 
-Base Node.js + Express RESTful API scaffold.
+OBM credentials and endpoints are loaded per company from `tenant_integration`
+and Azure Key Vault. There are no demo credentials or automatic mock readings in
+production startup. Node.js 22+, PostgreSQL, Redis and a managed identity with
+access to the approved Key Vault are required.
 
-## Requirements
+Run `npm ci` and `npm start`. Supply shared database settings (`DATABASE_URL` or
+`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`), `REDIS_URL`,
+`KEY_VAULT_ALLOWED_HOSTS`, optional `AZURE_CLIENT_ID`, and `INTERNAL_SERVICE_KEY`.
+`PORT` and `API_PREFIX` select the HTTP address. `READING_INGESTION_INTERVAL_MS`
+and `SITE_SYNC_INTERVAL_MS` control the shared schedule periods.
 
-- Node.js 18+
-- npm
+Each enabled `obm` integration supplies `base_url`, `username`,
+`token_refresh_hours`, and a Key Vault reference containing JSON with `password`.
+Tokens are cached separately for each company/configuration revision and never
+returned by the API or logged.
 
-## Setup
+`GET /api/v1/health` is public. `/api/v1/readings/*` requires the trusted internal
+headers `X-Service-Key` and `X-Company-Id`. Callers must derive the company from
+their authenticated server context. A token-refresh request returns metadata.
+Site-reading requests also check that the site belongs to that company.
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Create your environment file:
-   ```bash
-   cp .env.example .env
-   ```
-3. Start development server:
-   ```bash
-   npm run dev
-   ```
+Site and reading jobs run for each enabled company with separate Redis locks and
+error handling. Site codes may repeat across companies. Every meter must exist
+as an active device in the company's account and in its energy site hierarchy.
+Readings use the current Django raw-energy schema and stable IDs for retries.
 
-## Scripts
+Run `npm test` for route/token isolation; `npm run test:integration` needs a
+throwaway `mt2_*` database in `TEST_DATABASE_URL`. Do not point it at production.
+In the parent checkout, `python3 scripts/test_node_tenant_database.py` creates and
+removes that database automatically and also tests infrastructure-only startup.
 
-- npm run dev - Start server with nodemon
-- npm start - Start server
-- npm test - Run unit tests
-
-## Unit Testing
-
-This project uses `jest` and `supertest` for route-level unit testing.
-
-Run tests:
-
-```bash
-npm test
-```
-
-## Swagger Testing
-
-- Swagger UI: `GET /api-docs`
-- OpenAPI JSON: `GET /api-docs.json`
-
-Use Swagger UI to test endpoints directly. The API manages upstream `apiAccessToken` automatically.
-
-## Base Endpoints
-
-- `GET /` - API status
-- `GET /api/v1/readings/request-token` - Force refresh upstream token
-- `GET /api/v1/readings/list` - List modem and meter info
-- `GET /api/v1/readings/get-all-accounts-by-group` - List all accounts by group
-- `GET /api/v1/readings/get-accounts-by-sub-group?subgroup=...` - List accounts by subgroup
-- `GET /api/v1/readings/get-site-readings?site=...&date=YYYY-MM-DD` - Get site readings by date
-- `GET /api/v1/readings/get-site-daily?site=...&date=YYYY-MM-DD` - Get site daily readings by date
-- `GET /api/v1/health` - Health check
-
-## Authentication Behavior
-
-- On API startup, the server requests an upstream token from `https://meterportal.obmeters.com/readings/request-token`.
-- The token is stored in memory and reused for all upstream requests.
-- The token is automatically refreshed every `TOKEN_REFRESH_HOURS` (default `12`).
-- You can manually trigger refresh with `GET /api/v1/readings/request-token`.
-- Set `SKIP_TOKEN_ON_LOAD=true` to skip the startup token fetch when you only want to run the mock energy sender locally.
-
-## Automatic Reading Ingestion
-
-The API synchronizes sites from `/readings/list` immediately and every 6 hours by default.
-`SerialNumber` from that response is treated as the site name. The interval can be changed
-with `SITE_SYNC_INTERVAL_MS`.
-
-After startup, the API fetches today's readings for each active stored site immediately and every
-30 minutes by default. The interval can be changed with `READING_INGESTION_INTERVAL_MS`.
-
-Sites are stored in `obm_sites`. Individual half-hour readings are normalized into
-`obm_readings`, keyed by site, date, meter serial, and reading time. Repeated fetches update
-existing rows rather than creating duplicates.
-
-## Mock Energy Mode
-
-If the Owen Brothers upstream endpoint is not available, the API also sends a synthetic energy
-payload every 30 minutes by default. The payload is posted to the processor service at
-`PROCESSOR_BASE_URL` and is intended for local end-to-end testing.
-
-Configuration:
-
-- `PROCESSOR_BASE_URL` - Processor base URL, default `http://irvine_processor:7000`
-- `MOCK_ENERGY_INTERVAL_MS` - Send interval in milliseconds, default `1800000`
-- `MOCK_ENERGY_METER_SERIAL` - Meter serial included in the mock payload
-- `MOCK_ENERGY_TOPIC` - Topic value included in the mock payload
-
-The processor receives the mock payload at `POST /energy/` and stores each reading row in
-`rawdata_energy`.
-
-## Common Parameters
-
-- Date format
-   - Use `YYYY-MM-DD`
-- URL encoding
-   - Encode spaces as `%20`
-
-## Error Handling
-
-API responses include standard HTTP status codes:
-
-- `200 OK`: The request was successful
-- `400 Bad Request`: The request was invalid or missing parameters
-- `401 Unauthorized`: The `apiAccessToken` is missing or invalid
-- `403 Forbidden`: Access is denied
-- `404 Not Found`: The requested resource was not found
-- `500 Internal Server Error`: An error occurred on the server
-
-### Use Token
-
-Local API usage:
-
-```bash
-curl "http://localhost:3000/api/v1/health"
-```
-
-Meter operations:
-
-```bash
-curl "http://localhost:3000/api/v1/readings/list"
-```
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-site-readings?site=Heywood"
-```
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-site-readings?site=Heywood&date=2026-08-18"
-```
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-site-daily?site=Heywood"
-```
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-site-daily?site=Heywood&date=2026-08-18"
-```
-
-Account operations:
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-all-accounts-by-group"
-```
-
-```bash
-curl "http://localhost:3000/api/v1/readings/get-accounts-by-sub-group?subgroup=Subgroup%201"
-```
+The full configuration, MQTT migration and staging procedure is in
+`docs/deployment/tenant-integrations-rollout.md` in the parent Irvine project.
+Django owns schema migrations; this service never creates or migrates tables.
