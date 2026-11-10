@@ -57,3 +57,10 @@ test('a foreign meter aborts the whole tenant batch with no partial writes', asy
   await assert.rejects(saveSiteReadings('same-site', '2026-10-01', payload, 1, undefined, db), /Device unavailable/);
   assert.equal(Number((await db.query('SELECT count(*) FROM rawdata_energy')).rows[0].count), 2);
 });
+
+test('Company A cannot read a site that only Company B owns', async () => {
+  await db.query(`INSERT INTO energy_location (id, company_id, code, name, is_active)
+    VALUES ($1, 2, 'b-private', 'Private B site', true)`, [randomUUID()]);
+  assert.equal((await getActiveSites(1, db)).includes('b-private'), false);
+  assert.equal((await getActiveSites(2, db)).includes('b-private'), true);
+});

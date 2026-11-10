@@ -1,3 +1,4 @@
+const { companyPool } = require('@irvine/tenant-runtime');
 const { Pool } = require('pg');
 const env = require('./env');
 
@@ -45,7 +46,7 @@ function buildPoolConfig() {
   };
 }
 
-const pool = new Pool(buildPoolConfig());
+const pool = companyPool(new Pool(buildPoolConfig()));
 
 async function initializeDatabase() {
   const client = await pool.connect();

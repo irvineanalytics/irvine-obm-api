@@ -1,5 +1,5 @@
 const { randomUUID } = require('node:crypto');
-const { currentCompany, ownedDevice, eventId, runPerCompany, schedule, assertCurrentLease } = require('@irvine/tenant-runtime');
+const { withCompany, currentCompany, ownedDevice, eventId, runPerCompany, schedule, assertCurrentLease } = require('@irvine/tenant-runtime');
 const runtime = require('./tenant-runtime');
 const upstream = require('./upstream-client');
 const env = require('../config/env');
@@ -29,6 +29,7 @@ async function requireSite(site, company = currentCompany(), db = runtime().db) 
 }
 async function saveSiteReadings(site, readingDate, payload, company = currentCompany(), lease, db = runtime().db) {
   if (!payload || !Array.isArray(payload.meters)) throw new Error('Invalid OBM readings');
+  return withCompany(company, async () => {
   const connection = await db.connect();
   try {
     await connection.query('BEGIN');
@@ -54,6 +55,7 @@ async function saveSiteReadings(site, readingDate, payload, company = currentCom
     await lease?.assertOwned(); await connection.query('COMMIT');
   } catch (error) { await connection.query('ROLLBACK'); throw error; }
   finally { connection.release(); }
+  });
 }
 async function ingestSiteReadings(site, date = getDateString(), company = currentCompany(), lease) {
   await requireSite(site, company);
